@@ -26,8 +26,13 @@
     "agent-memory",
     "python-sandbox"
   ],
-  "author": "Freedom Engine M2M Protocol",
+  "author": "M2M Market — Freedom Engine (m2mfreedom)",
   "license": "MIT",
+  "homepage": "https://github.com/m2mfreedom/freedom-m2m-mcp-server#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/m2mfreedom/freedom-m2m-mcp-server.git"
+  },
   "engines": {
     "node": ">=18.0.0"
   }
