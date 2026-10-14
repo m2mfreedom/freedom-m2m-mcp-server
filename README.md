@@ -1,4 +1,8 @@
-# ⚡ Freedom Engine M2M Gateway & Clearinghouse — Official MCP Server
+<p align="center">
+  <img src="./logo.png" alt="M2M Market — Freedom Engine Logo" width="260" style="border-radius: 18px;" />
+</p>
+
+# ⚡ M2M Market — Freedom Engine Gateway & Clearinghouse (Official MCP Server)
 
 Zero-registration **Model Context Protocol (MCP)** server connecting Autonomous AI Agents (Claude Desktop, Cursor, OpenClaw, ElizaOS, LangChain, Coinbase AgentKit) to the **Freedom Engine M2M Gateway** via **HTTP 402**:
 - **⚡ L402 (Bitcoin Lightning Network):** Instant Satoshi settlement (`Lordbryce@coinos.io`)
