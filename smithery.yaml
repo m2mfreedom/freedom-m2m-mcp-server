@@ -1,0 +1,22 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      freedomGatewayUrl:
+        type: string
+        default: "http://32.197.245.10:3001"
+        description: "Freedom Engine M2M Gateway URL"
+      freedomAuthHeader:
+        type: string
+        default: ""
+        description: "Optional default L402 or x402 Authorization header"
+  commandFunction: |-
+    (config) => ({
+      command: 'node',
+      args: ['index.js'],
+      env: {
+        FREEDOM_GATEWAY_URL: config.freedomGatewayUrl || 'http://32.197.245.10:3001',
+        FREEDOM_AUTH_HEADER: config.freedomAuthHeader || ''
+      }
+    })
