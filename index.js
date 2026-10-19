@@ -9,7 +9,7 @@
 
 import readline from 'node:readline';
 
-const GATEWAY_URL = (process.env.FREEDOM_GATEWAY_URL || 'http://32.197.245.10:3001').replace(/\/+$/, '');
+const GATEWAY_URL = (process.env.FREEDOM_GATEWAY_URL || 'https://m2mfreedom.com').replace(/\/+$/, '');
 const DEFAULT_AUTH_HEADER = process.env.FREEDOM_AUTH_HEADER || '';
 
 const TOOLS = [
