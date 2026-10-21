@@ -1,11 +1,12 @@
 {
   "name": "freedom-m2m-mcp-server",
-  "version": "2.1.0",
-  "description": "Official MCP Server for Freedom Engine M2M Gateway & Clearinghouse (L402 Bitcoin Lightning + x402 Base USDC & Solana). Zero-registration tools for AI Agents: Stealth Web Unlocker, Persistent K/V Memory Vault, Structured Financial/Table Extractor, Clean Markdown Scraper, Isolated Python Math Sandbox, and M2M Bounty Orderbook.",
+  "version": "2.2.0",
+  "description": "Official MCP Server for Freedom Engine M2M Gateway & Clearinghouse (L402 Bitcoin Lightning + x402 Base USDC & Solana). Zero-registration tools for AI Agents: Stealth Web Unlocker, Persistent K/V Memory Vault, Structured Financial/Table Extractor, Clean Markdown Scraper, Isolated Python Math Sandbox, and M2M Bounty Orderbook. Includes autonomous Worker Daemon (npx freedom-worker).",
   "main": "index.js",
   "type": "module",
   "bin": {
-    "freedom-m2m-mcp": "./index.js"
+    "freedom-m2m-mcp": "index.js",
+    "freedom-worker": "worker-daemon.mjs"
   },
   "scripts": {
     "start": "node index.js",
