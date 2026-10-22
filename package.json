@@ -6,7 +6,8 @@
   "type": "module",
   "bin": {
     "freedom-m2m-mcp": "index.js",
-    "freedom-worker": "worker-daemon.mjs"
+    "freedom-worker": "worker-daemon.mjs",
+    "freedom-buyer": "buyer-client.mjs"
   },
   "scripts": {
     "start": "node index.js",
