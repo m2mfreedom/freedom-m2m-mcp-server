@@ -6,8 +6,10 @@
 
 Zero-registration **Model Context Protocol (MCP)** server connecting Autonomous AI Agents (Claude Desktop, Cursor, OpenClaw, ElizaOS, LangChain, Coinbase AgentKit) to the **Freedom Engine M2M Gateway** at **https://m2mfreedom.com** via **HTTP 402**:
 - **⚡ L402 (Bitcoin Lightning Network):** Instant Satoshi settlement (`Lordbryce@coinos.io`)
-- **🔵 x402 (Base Mainnet USDC):** `0x50A9f6256F1d9c20E5Bc76FED6eEdB65C1219D34`
-- **🟣 x402 (Solana Mainnet USDC / SOL):** `6gi95GdtgStarvZ2btWD9zSoEsTE1gSNsfcpJmKv24oC`
+- **🔵 x402 (Base Mainnet USDC & Coinbase Facilitator):** `0x50A9f6256F1d9c20E5Bc76FED6eEdB65C1219D34` (supports `Authorization: x402 base:<txHash>`, `X-PAYMENT`, and `PAYMENT-SIGNATURE`)
+- **🟣 x402 (Solana Mainnet USDC / SOL & Solana Actions Blinks v2.1.3):** `6gi95GdtgStarvZ2btWD9zSoEsTE1gSNsfcpJmKv24oC`
+- **🎟️ Prepaid Multi-Call Session Pass (`POST /api/v1/router/topup`):** Deposit once (100–500,000 Sats) and receive a reusable `Bearer m2m-pass-<hex>` token for 0ms multi-call execution across all tools and orderbook endpoints.
+- **📡 Nostr NIP-90 DVM Bridge (`/api/v1/market/nostr-dvm`):** Autonomous Data Vending Machine quoting (`Kind 7000`) and delivering (`Kind 6000/6001/6002/6050`) real jobs with `BOLT11` invoices attached.
 
 ---
 
