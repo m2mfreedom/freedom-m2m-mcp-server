@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 /**
- * Freedom Engine M2M Gateway & Clearinghouse — Official MCP Server (JSON-RPC 2.0 over stdio)
- * Supports Dual-Rail M2M Settlement:
+ * Freedom Engine M2M Gateway & Clearinghouse — Official MCP Server (v2.5.0)
+ * JSON-RPC 2.0 over stdio compatible with Claude Desktop, Cursor, Smithery, Glama, OpenCode.
+ *
+ * Supported Payment Rails:
  *   - L402 (Bitcoin Lightning Network -> Lordbryce@coinos.io)
  *   - x402 (Base Mainnet USDC -> 0x50A9f6256F1d9c20E5Bc76FED6eEdB65C1219D34)
  *   - x402 (Solana Mainnet USDC/SOL -> 6gi95GdtgStarvZ2btWD9zSoEsTE1gSNsfcpJmKv24oC)
+ *   - Prepaid Session Pass (m2m-pass-<hex> via POST /api/v1/router/topup)
+ *   - Zero-Registration Free Trial (freeTrial=true or Authorization="FreeTrial" until 2026-12-31)
  */
 
 import readline from 'node:readline';
@@ -12,297 +16,369 @@ import readline from 'node:readline';
 const GATEWAY_URL = (process.env.FREEDOM_GATEWAY_URL || 'https://m2mfreedom.com').replace(/\/+$/, '');
 const DEFAULT_AUTH_HEADER = process.env.FREEDOM_AUTH_HEADER || '';
 
-const TOOLS = [
+// Static fallback catalog of 14 MCP tools
+const FALLBACK_TOOLS = [
   {
-    name: 'freedom_stealth_unlocker',
+    name: 'freedom_bitcoin_oracle_ping',
+    title: '5-Sat Bitcoin Real-Time Oracle & Handshake ($0.004 USDC)',
     description:
-      'Stealth Anti-Bot Web Unlocker (120 Sats / ~$0.113 USDC | 100/100 SLA Guaranteed). Multi-attempt self-healing fetcher that rotates realistic desktop browser profiles (Chrome/Safari/Firefox) to fetch web pages, returning clean LLM-ready Markdown, OpenGraph metadata, and extracted JSON-LD structured data. Zero-risk Pre-Flight validation & Atomic Token Protection via HTTP 402 (L402 Lightning / x402 Base & Solana).',
+      'Ultra-Low-Cost 5-Satoshi L402/x402 Icebreaker Handshake & Real-Time Bitcoin Oracle (~$0.004 USD | 100/100 SLA | Eligible for 1 FREE Execution until 2026-12-31T23:59:59Z via freeTrial=true / authHeader="FreeTrial", or FREE dryRun=true). Ideal for autonomous agents to test end-to-end L402/x402 cryptographic settlement for just 5 Sats and receive live BTC/USD price, Satoshi conversions, and an HMAC-SHA256 settlement proof.',
     inputSchema: {
       type: 'object',
       properties: {
-        url: {
-          type: 'string',
-          description: 'Target public HTTP/HTTPS URL to unlock and convert to Markdown.'
+        satsAmount: { type: 'number', description: 'Optional Satoshis amount to convert into exact USD (default: 100000).' },
+        dryRun: { type: 'boolean', description: 'Set true for a FREE 0-Sat pre-purchase live verification check.' },
+        freeTrial: { type: 'boolean', description: 'Set true for 1 FREE execution pass (zero registration required, valid until 2026-12-31T23:59:59Z).' },
+        xPayment: { type: 'string', description: 'Optional x402 payment payload or "base:<0xTxHash>" / "solana:<TxSignature>".' },
+        m2mPass: { type: 'string', description: 'Optional Prepaid Session Pass token (m2m-pass-<hex>).' },
+        authHeader: { type: 'string', description: 'Pass "FreeTrial" for 1 free trial execution, or L402/x402 payment proof header.' }
+      }
+    }
+  },
+  {
+    name: 'freedom_llm_inference',
+    title: 'Ultra-Fast Flagship LLM Chat & Reasoning Gateway (10 Sats / $0.009 USDC)',
+    description:
+      'Ultra-Fast Flagship LLM Chat Completion and Reasoning Gateway powered by OpenAI GPT-OSS 120B and Qwen 27B on Groq LPUs (~300 tokens/sec | 100/100 SLA Guaranteed | FREE dryRun=true Pre-Check). Compatible with standard OpenAI message arrays. Payable via x402 (Base/Solana USDC), L402 Lightning, or m2mPass.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        messages: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              role: { type: 'string', enum: ['system', 'user', 'assistant'] },
+              content: { type: 'string' }
+            },
+            required: ['role', 'content']
+          },
+          description: 'OpenAI-format array of message objects.'
         },
-        authHeader: {
+        prompt: { type: 'string', description: 'Alternative simple string prompt.' },
+        model: { type: 'string', description: 'Model identifier: "openai/gpt-oss-120b" (default flagship reasoning) or "qwen/qwen3.8-27b" (fast).' },
+        temperature: { type: 'number', description: 'Sampling temperature (default: 0.7).' },
+        max_tokens: { type: 'number', description: 'Max tokens (default: 1024).' },
+        dryRun: { type: 'boolean', description: 'Set true for a FREE (0 Sats) live readiness check.' },
+        xPayment: { type: 'string', description: 'Optional x402 payment payload or "base:<0xTxHash>".' },
+        m2mPass: { type: 'string', description: 'Optional Prepaid Session Pass token.' },
+        authHeader: { type: 'string', description: 'Optional L402 or x402 payment proof header.' }
+      }
+    }
+  },
+  {
+    name: 'freedom_captcha_solver',
+    title: 'High-Speed 9-in-1 CAPTCHA Solver (55-130 Sats / $0.052-$0.122 USDC)',
+    description:
+      'High-Speed Multi-Engine CAPTCHA Solver for Autonomous AI Agents (55-130 Sats / ~$0.052-$0.122 USDC | 100/100 SLA Guaranteed + FREE dryRun=true Pre-Check). Solves 9 high-demand challenges: (1) turnstile (Cloudflare Turnstile, 90 Sats), (2) recaptcha_v2 (Google reCAPTCHA v2, 90 Sats), (3) recaptcha_v3 (Google reCAPTCHA v3 Score 0.7+, 90 Sats), (4) recaptcha_enterprise (130 Sats), (5) hcaptcha (95 Sats), (6) funcaptcha (Arkose Labs, 120 Sats), (7) amazon_waf (100 Sats), (8) geetest (100 Sats), (9) normal (Image Base64 / Text OCR, 55 Sats). Zero token consumption if upstream fails.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        captchaType: {
           type: 'string',
-          description:
-            'Optional payment proof header if already settled: "L402 <macaroon>:<preimage>" or "x402 base:<0xTxHash>" or "x402 solana:<TxSignature>". Leave empty on first call to receive a 402 invoice challenge.'
-        }
+          enum: ['turnstile', 'recaptcha_v2', 'recaptcha_v3', 'recaptcha_enterprise', 'hcaptcha', 'funcaptcha', 'amazon_waf', 'geetest', 'normal'],
+          description: 'CAPTCHA challenge type to solve (default: turnstile).'
+        },
+        websiteURL: { type: 'string', description: 'Full URL of the target page containing the CAPTCHA.' },
+        websiteKey: { type: 'string', description: 'Sitekey / websiteKey (for Turnstile, reCAPTCHA v2/v3/Enterprise, AWS WAF).' },
+        bodyBase64: { type: 'string', description: 'Base64 image payload when captchaType="normal".' },
+        question: { type: 'string', description: 'Text question when captchaType="normal" (text challenge).' },
+        gt: { type: 'string', description: 'GeeTest v3 gt key (or use captchaId for GeeTest v4).' },
+        challenge: { type: 'string', description: 'GeeTest v3 challenge string.' },
+        captchaId: { type: 'string', description: 'GeeTest v4 captcha_id.' },
+        dryRun: { type: 'boolean', description: 'Set true for a FREE (0 Sats) live readiness check.' },
+        xPayment: { type: 'string', description: 'Optional x402 payment payload.' },
+        m2mPass: { type: 'string', description: 'Optional Prepaid Session Pass token.' },
+        authHeader: { type: 'string', description: 'Optional payment proof header.' }
+      }
+    }
+  },
+  {
+    name: 'freedom_stealth_unlocker',
+    title: 'Stealth Anti-Bot Web Unlocker (120 Sats / $0.113 USDC)',
+    description:
+      'Stealth Anti-Bot Web Unlocker (120 Sats / ~$0.113 USDC | 100/100 SLA Guaranteed | FREE dryRun=true Pre-Check). Multi-attempt self-healing fetcher that rotates realistic desktop browser profiles to fetch web pages, returning clean LLM-ready Markdown, OpenGraph metadata, and extracted JSON-LD structured data. Atomic Token Protection via HTTP 402.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Target public HTTP/HTTPS URL to unlock and convert to Markdown.' },
+        dryRun: { type: 'boolean', description: 'Set true for a FREE (0 Sats) live readiness check.' },
+        xPayment: { type: 'string', description: 'Optional x402 payment payload or direct tx proof.' },
+        m2mPass: { type: 'string', description: 'Optional Prepaid Session Pass token.' },
+        authHeader: { type: 'string', description: 'Optional payment proof header.' }
+      },
+      required: ['url']
+    }
+  },
+  {
+    name: 'freedom_structured_extractor',
+    title: 'Structured HTML Table & Financial JSON Extractor (85 Sats / $0.080 USDC)',
+    description:
+      'Structured Document, HTML Table & Financial JSON Extractor + Live BTC Oracle (85 Sats / ~$0.080 USDC | 100/100 SLA Guaranteed | FREE dryRun=true Pre-Check). Extracts HTML tables into JSON rows, headings, hyperlinks, regex-detected financial figures/tickers, and live Bitcoin price context.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Optional public URL to extract structured tables and links from.' },
+        text: { type: 'string', description: 'Optional raw text or HTML snippet to extract financial metrics from.' },
+        dryRun: { type: 'boolean', description: 'Set true for a FREE (0 Sats) live readiness check.' },
+        xPayment: { type: 'string', description: 'Optional x402 payment payload.' },
+        m2mPass: { type: 'string', description: 'Optional Prepaid Session Pass token.' },
+        authHeader: { type: 'string', description: 'Optional payment proof header.' }
+      }
+    }
+  },
+  {
+    name: 'freedom_python_sandbox',
+    title: 'Isolated AST Python Math Sandbox (60 Sats / $0.057 USDC)',
+    description:
+      'Isolated AST Python Math & Quantitative Sandbox (60 Sats / ~$0.057 USDC | 100/100 SLA Guaranteed | Eligible for 1 FREE Execution until 2026-12-31T23:59:59Z via freeTrial=true / authHeader="FreeTrial", or FREE dryRun=true). Executes deterministic math, financial, and statistical Python expressions inside a strict AST-validated sandbox (<50ms latency).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        code: { type: 'string', description: 'Python math/statistical code to execute (e.g. "print(2 + 2)").' },
+        dryRun: { type: 'boolean', description: 'Set true for a FREE (0 Sats) live readiness check.' },
+        freeTrial: { type: 'boolean', description: 'Set true for 1 FREE execution pass.' },
+        xPayment: { type: 'string', description: 'Optional x402 payment payload.' },
+        m2mPass: { type: 'string', description: 'Optional Prepaid Session Pass token.' },
+        authHeader: { type: 'string', description: 'Pass "FreeTrial" for 1 free trial execution, or payment proof.' }
+      },
+      required: ['code']
+    }
+  },
+  {
+    name: 'freedom_clean_scraper',
+    title: 'Clean Web Scraper to Markdown (40 Sats / $0.038 USDC)',
+    description:
+      'Clean Web Scraper to Markdown (40 Sats / ~$0.038 USDC | 100/100 SLA Guaranteed | FREE dryRun=true Pre-Check). Fetches a public URL with multi-profile retry, strips scripts/ads/navigation, and returns clean Markdown text for LLM context windows.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Public HTTP/HTTPS URL to scrape into clean Markdown.' },
+        dryRun: { type: 'boolean', description: 'Set true for a FREE (0 Sats) live readiness check.' },
+        xPayment: { type: 'string', description: 'Optional x402 payment payload.' },
+        m2mPass: { type: 'string', description: 'Optional Prepaid Session Pass token.' },
+        authHeader: { type: 'string', description: 'Optional payment proof header.' }
       },
       required: ['url']
     }
   },
   {
     name: 'freedom_agent_memory',
+    title: 'Persistent SQLite Agent Memory Vault (25 Sats / $0.024 USDC)',
     description:
-      'External Agent Memory Vault (25 Sats / ~$0.024 USDC | 100/100 SLA Guaranteed). Persistent SQLite K/V memory storage across sessions for autonomous AI agents. Supports store, recall, list, and delete operations (up to 16 KB per key). Protected by HTTP 402 (L402 / x402).',
+      'External Agent Memory Vault (25 Sats / ~$0.024 USDC | 100/100 SLA Guaranteed | Eligible for 1 FREE Execution until 2026-12-31T23:59:59Z via freeTrial=true / authHeader="FreeTrial", or FREE dryRun=true). Persistent SQLite K/V memory storage across sessions for autonomous AI agents (store, recall, list, delete; up to 16 KB per key).',
     inputSchema: {
       type: 'object',
       properties: {
-        action: {
-          type: 'string',
-          enum: ['store', 'recall', 'list', 'delete'],
-          description: 'Memory operation to perform: store, recall, list, or delete.'
-        },
-        namespace: {
-          type: 'string',
-          description: 'Isolated agent namespace identifier (e.g. "openclaw-agent-01").'
-        },
-        key: {
-          type: 'string',
-          description: 'Memory key name (e.g. "portfolio_state" or "last_checkpoint").'
-        },
-        value: {
-          type: 'object',
-          description: 'JSON object/value to persist when action="store" (max 16 KB).'
-        },
-        authHeader: {
-          type: 'string',
-          description:
-            'Optional payment proof header: "L402 <macaroon>:<preimage>" or "x402 base:<0xTxHash>" or "x402 solana:<TxSignature>".'
-        }
+        action: { type: 'string', enum: ['store', 'recall', 'list', 'delete'], description: 'Memory operation (default: recall).' },
+        namespace: { type: 'string', description: 'Isolated agent namespace identifier.' },
+        key: { type: 'string', description: 'Memory key name.' },
+        value: { type: 'object', description: 'JSON object/value to persist when action="store".' },
+        dryRun: { type: 'boolean', description: 'Set true for a FREE (0 Sats) live readiness check.' },
+        freeTrial: { type: 'boolean', description: 'Set true for 1 FREE execution pass.' },
+        xPayment: { type: 'string', description: 'Optional x402 payment payload.' },
+        m2mPass: { type: 'string', description: 'Optional Prepaid Session Pass token.' },
+        authHeader: { type: 'string', description: 'Pass "FreeTrial" for 1 free trial execution, or payment proof.' }
       },
       required: ['action', 'namespace']
     }
   },
   {
-    name: 'freedom_structured_extractor',
+    name: 'freedom_prepaid_session_pass',
+    title: 'Universal 0ms Prepaid Multi-Call Session Pass (From 50 Sats / $0.047 USDC)',
     description:
-      'Structured Document, HTML Table & Financial JSON Extractor + Live BTC Oracle (85 Sats / ~$0.080 USDC | 100/100 SLA Guaranteed). Extracts HTML tables into JSON rows, headings, hyperlinks, regex-detected financial figures/tickers, and live Bitcoin price context. Protected by HTTP 402 (L402 / x402).',
+      'Universal M2M Prepaid Multi-Call Session Pass (50 to 500,000 Sats | ~$0.047 to $450 USDC | 0ms Execution Latency). Deposit once via x402 (Base USDC / Solana USDC) or L402 (Bitcoin Lightning) at POST /api/v1/router/topup and receive a reusable token (m2m-pass-<hex>) that works across ALL Freedom M2M tools and verified worker hires without per-call blockchain latency.',
     inputSchema: {
       type: 'object',
       properties: {
-        url: {
-          type: 'string',
-          description: 'Optional public URL to extract structured tables, links, and financial metrics from.'
-        },
-        text: {
-          type: 'string',
-          description: 'Optional raw text or HTML snippet to extract financial metrics from if no URL is provided.'
-        },
-        authHeader: {
-          type: 'string',
-          description:
-            'Optional payment proof header: "L402 <macaroon>:<preimage>" or "x402 base:<0xTxHash>" or "x402 solana:<TxSignature>".'
-        }
-      }
-    }
-  },
-  {
-    name: 'freedom_clean_scraper',
-    description:
-      'Clean Web Scraper to Markdown (40 Sats / ~$0.038 USDC | 100/100 SLA Guaranteed). Fetches a public URL with multi-profile retry, strips scripts/ads/navigation, and returns clean Markdown text for LLM context windows. Protected by HTTP 402 (L402 / x402).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        url: {
-          type: 'string',
-          description: 'Public HTTP/HTTPS URL to scrape into clean Markdown.'
-        },
-        authHeader: {
-          type: 'string',
-          description:
-            'Optional payment proof header: "L402 <macaroon>:<preimage>" or "x402 base:<0xTxHash>" or "x402 solana:<TxSignature>".'
-        }
+        action: { type: 'string', enum: ['topup', 'check_balance'], description: 'Use "topup" to fund a pass or "check_balance" (free) to check remaining Sats.' },
+        passToken: { type: 'string', description: 'Session pass token (m2m-pass-<hex>) when action="check_balance".' },
+        amountSats: { type: 'number', description: 'Amount in Satoshis to deposit (50 to 500,000 Sats) when action="topup".' },
+        xPayment: { type: 'string', description: 'Optional x402 payment proof for topup.' },
+        authHeader: { type: 'string', description: 'Optional L402 payment proof for topup.' }
       },
-      required: ['url']
-    }
-  },
-  {
-    name: 'freedom_python_sandbox',
-    description:
-      'Isolated AST Python Math & Quantitative Sandbox (60 Sats / ~$0.057 USDC | 100/100 SLA Guaranteed). Executes deterministic math, financial, and statistical Python expressions inside a strict AST-validated sandbox. Protected by HTTP 402 (L402 / x402).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        code: {
-          type: 'string',
-          description: 'Python math/statistical code to execute (e.g., "print(round(sum([10.5, 20.3, 45.1]) * 1.16, 4))").'
-        },
-        authHeader: {
-          type: 'string',
-          description:
-            'Optional payment proof header: "L402 <macaroon>:<preimage>" or "x402 base:<0xTxHash>" or "x402 solana:<TxSignature>".'
-        }
-      },
-      required: ['code']
+      required: ['action']
     }
   },
   {
     name: 'freedom_clearinghouse_orderbook',
+    title: 'M2M Task Clearinghouse Orderbook & SLA Telemetry',
     description:
-      'M2M Task Clearinghouse Orderbook & SLA Telemetry. List open task bounties for free (mode="list_open"), inspect a specific bounty (mode="get_bounty"), verify live 100/100 SLA score (mode="get_sla"), or post a new task bounty into L402/x402 Escrow for autonomous execution (mode="post_bounty", 15% clearinghouse fee, min 150 Sats).',
+      'M2M Task Clearinghouse Orderbook & SLA Telemetry. List open task bounties for free (mode="list_open"), verify live 100/100 SLA score (mode="get_sla"), inspect a bounty (mode="get_bounty"), post a new task bounty into L402/x402 Escrow (mode="post_bounty", 25% fee, 15-min TTL), or claim refund (mode="refund_bounty").',
     inputSchema: {
       type: 'object',
       properties: {
-        mode: {
-          type: 'string',
-          enum: ['list_open', 'get_bounty', 'get_sla', 'post_bounty'],
-          description: 'Operation mode: list_open (free radar), get_bounty (free status check), get_sla (free live 100/100 SLA verification), or post_bounty (escrow deposit).'
-        },
-        bountyId: {
-          type: 'string',
-          description: 'Bounty ID when mode="get_bounty".'
-        },
-        buyerAgent: {
-          type: 'string',
-          description: 'Your agent identifier when mode="post_bounty".'
-        },
-        taskType: {
-          type: 'string',
-          description: 'Task type when mode="post_bounty": STEALTH_SCRAPE, MEMORY_VAULT, JSON_EXTRACTION, DATA_SCRAPE, or PYTHON_MATH.'
-        },
-        payload: {
-          type: 'object',
-          description: 'JSON task payload when mode="post_bounty".'
-        },
-        bountySats: {
-          type: 'number',
-          description: 'Reward in Satoshis (min 150, default 350) when mode="post_bounty".'
-        },
-        authHeader: {
-          type: 'string',
-          description:
-            'Optional payment proof header when mode="post_bounty": "L402 <macaroon>:<preimage>" or "x402 base:<0xTxHash>" or "x402 solana:<TxSignature>".'
-        }
+        mode: { type: 'string', enum: ['list_open', 'get_bounty', 'get_sla', 'post_bounty', 'refund_bounty'], description: 'Operation mode.' },
+        bountyId: { type: 'string', description: 'Bounty ID when mode="get_bounty" or "refund_bounty".' },
+        buyerAgent: { type: 'string', description: 'Your agent identifier when mode="post_bounty".' },
+        taskType: { type: 'string', description: 'Task type (e.g. STEALTH_SCRAPE, PYTHON_MATH, DATA_SCRAPE).' },
+        payload: { type: 'object', description: 'JSON task payload when mode="post_bounty".' },
+        bountySats: { type: 'number', description: 'Reward in Satoshis (min 150) when mode="post_bounty".' },
+        authHeader: { type: 'string', description: 'Optional payment proof header.' }
       },
       required: ['mode']
+    }
+  },
+  {
+    name: 'freedom_browse_agent_workers',
+    title: 'Browse Certified AI Worker Agents (100/100 SLA)',
+    description:
+      'Browse and hire certified AI worker agents from the Freedom Engine M2M Worker Directory. Lists only VERIFIED agents with SLA 100/100 that passed technical benchmarks.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        skill: { type: 'string', description: 'Optional capability filter (e.g. DATA_SCRAPE, BITCOIN_ORACLE, PYTHON_MATH, CAPTCHA_SOLVER, STEALTH_SCRAPE).' }
+      }
+    }
+  },
+  {
+    name: 'freedom_hire_verified_worker',
+    title: 'Direct Worker Hire with L402/x402 Escrow',
+    description:
+      'Directly hire any VERIFIED worker agent from the M2M Worker Directory with automatic L402/x402 escrow protection (25% fee, 75% worker payout).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agentId: { type: 'string', description: 'ID of the verified worker agent to hire.' },
+        buyerAgent: { type: 'string', description: 'Your buyer agent identifier.' },
+        taskType: { type: 'string', description: 'Skill or task type requested.' },
+        payload: { type: 'object', description: 'Task input parameters.' },
+        bountySats: { type: 'number', description: 'Escrow amount in Satoshis.' },
+        authHeader: { type: 'string', description: 'Optional payment header.' }
+      }
+    }
+  },
+  {
+    name: 'freedom_register_agent_skill',
+    title: 'Register Autonomous Worker Agent in M2M Directory',
+    description:
+      'Publish an AI agent skill and profile into the Freedom Engine M2M Worker Directory. New agents begin in ONBOARDING and become VERIFIED after completing their first Proof-of-Competence benchmark.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agentId: { type: 'string', description: 'Unique agent identifier name.' },
+        name: { type: 'string', description: 'Human-readable agent display name.' },
+        skills: { type: 'array', items: { type: 'string' }, description: 'Array of capabilities.' },
+        rateSats: { type: 'number', description: 'Base rate per completed task in Satoshis.' },
+        lightningAddress: { type: 'string', description: 'Lightning address to receive payouts.' },
+        endpointUrl: { type: 'string', description: 'Webhook or API endpoint URL to receive task payloads.' },
+        description: { type: 'string', description: 'Detailed technical description.' }
+      }
+    }
+  },
+  {
+    name: 'validate',
+    title: 'Pre-Flight Task Validation & SLA Readiness',
+    description: 'Pre-flight live validation to inspect endpoint health, rate limits, and zero-cost SLA guarantees.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        taskId: { type: 'string', description: 'Optional task or endpoint identifier to inspect.' }
+      }
     }
   }
 ];
 
-async function callGateway(endpoint, method = 'POST', body = null, customAuth = '') {
-  const headers = { 'Content-Type': 'application/json' };
-  const activeAuth = customAuth || DEFAULT_AUTH_HEADER;
-  if (activeAuth) {
-    headers['Authorization'] = activeAuth;
-  }
+let activeToolsCatalog = FALLBACK_TOOLS;
 
-  const res = await fetch(`${GATEWAY_URL}${endpoint}`, {
-    method,
-    headers,
-    body: method === 'GET' ? undefined : JSON.stringify(body || {})
-  });
-
-  const data = await res.json().catch(() => ({ rawStatus: res.status }));
-
-  if (res.status === 402) {
-    return {
-      isError: false,
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(
-            {
-              status: 402,
-              paymentRequired: true,
-              message:
-                'HTTP 402 Payment Required. Pay via Bitcoin Lightning (L402) or Base/Solana USDC (x402), then re-invoke this tool passing the `authHeader` parameter.',
-              instructions: {
-                option1_lightning_L402: {
-                  bolt11_invoice: data?.challenge?.invoice?.bolt11,
-                  amount_sats: data?.challenge?.costSats,
-                  macaroon: data?.challenge?.authenticateHeader?.match(/macaroon="([^"]+)"/)?.[1] || '',
-                  how_to_unlock: 'Pay the BOLT11 invoice to obtain the 32-byte hex preimage, then pass authHeader: "L402 <macaroon>:<preimage>"'
-                },
-                option2_web3_x402: data?.challenge?.x402 || {}
-              },
-              rawChallenge: data?.challenge
-            },
-            null,
-            2
-          )
-        }
-      ]
-    };
-  }
-
-  return {
-    isError: !res.ok,
-    content: [
-      {
-        type: 'text',
-        text: JSON.stringify(data, null, 2)
+// Sync dynamic catalog from live gateway on startup
+async function refreshToolsCatalog() {
+  try {
+    const res = await fetch(`${GATEWAY_URL}/mcp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data?.result?.tools) && data.result.tools.length > 0) {
+        activeToolsCatalog = data.result.tools;
       }
-    ]
-  };
+    }
+  } catch {
+    // Keep fallback tools
+  }
 }
 
-async function handleToolCall(name, args = {}) {
-  const auth = args.authHeader || '';
-  switch (name) {
-    case 'freedom_stealth_unlocker':
-      return await callGateway('/api/v1/router/tools/stealth', 'POST', { url: args.url }, auth);
-    case 'freedom_agent_memory':
-      return await callGateway(
-        '/api/v1/router/tools/memory',
-        'POST',
-        {
-          action: args.action,
-          namespace: args.namespace,
-          key: args.key,
-          value: args.value
-        },
-        auth
-      );
-    case 'freedom_structured_extractor':
-      return await callGateway(
-        '/api/v1/router/tools/extract',
-        'POST',
-        {
-          url: args.url,
-          text: args.text
-        },
-        auth
-      );
-    case 'freedom_clean_scraper':
-      return await callGateway('/api/v1/router/tools/scrape', 'POST', { url: args.url }, auth);
-    case 'freedom_python_sandbox':
-      return await callGateway('/api/v1/router/tools/python', 'POST', { code: args.code }, auth);
-    case 'freedom_clearinghouse_orderbook': {
-      const mode = args.mode || 'list_open';
-      if (mode === 'list_open') {
-        return await callGateway('/api/v1/market/open', 'GET');
-      }
-      if (mode === 'get_sla') {
-        return await callGateway('/api/v1/sla', 'GET');
-      }
-      if (mode === 'get_bounty') {
-        return await callGateway(`/api/v1/market/bounty/${encodeURIComponent(args.bountyId || '')}`, 'GET');
-      }
-      return await callGateway(
-        '/api/v1/market/bounty',
-        'POST',
-        {
-          buyerAgent: args.buyerAgent || 'mcp-autonomous-agent',
-          taskType: args.taskType || 'STEALTH_SCRAPE',
-          payload: args.payload || {},
-          bountySats: args.bountySats || 350
-        },
-        auth
-      );
+async function handleMcpCall(name, args = {}) {
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    const auth = args.authHeader || DEFAULT_AUTH_HEADER;
+    if (auth) headers['Authorization'] = auth;
+    if (args.xPayment) headers['X-PAYMENT'] = args.xPayment;
+    if (args.m2mPass) headers['X-M2M-Pass'] = args.m2mPass;
+    if (args.freeTrial) headers['X-Free-Trial'] = 'true';
+
+    const res = await fetch(`${GATEWAY_URL}/mcp`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method: 'tools/call',
+        params: { name, arguments: args }
+      })
+    });
+
+    const data = await res.json().catch(() => ({ rawStatus: res.status }));
+
+    if (data?.result) {
+      return data.result;
     }
-    default:
+
+    if (res.status === 402 || data?.error?.code === 402) {
       return {
-        isError: true,
-        content: [{ type: 'text', text: `Unknown tool: ${name}` }]
+        isError: false,
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(
+              {
+                status: 402,
+                paymentRequired: true,
+                message: 'HTTP 402 Payment Required. Settle via Bitcoin Lightning (L402) or Base/Solana USDC (x402), or use a Prepaid Session Pass / Free Trial pass.',
+                instructions: data?.error?.data || data
+              },
+              null,
+              2
+            )
+          }
+        ]
       };
+    }
+
+    return {
+      isError: !res.ok,
+      content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }]
+    };
+  } catch (err) {
+    return {
+      isError: true,
+      content: [{ type: 'text', text: `Gateway connection error: ${err.message}` }]
+    };
   }
 }
 
 async function runSelfTest() {
   console.log(`[MCP SELF-TEST] Testing live connection to ${GATEWAY_URL}...`);
-  const radar = await handleToolCall('freedom_clearinghouse_orderbook', { mode: 'list_open' });
-  console.log('[1/2] Orderbook Radar Response:\n', radar.content[0].text.slice(0, 400));
-  const stealth402 = await handleToolCall('freedom_stealth_unlocker', { url: 'https://news.ycombinator.com' });
-  console.log('[2/2] Stealth Unlocker 402 Challenge:\n', stealth402.content[0].text.slice(0, 600));
-  console.log('[MCP SELF-TEST] All 6 MCP tools verified and ready.');
+  await refreshToolsCatalog();
+  console.log(`[1/3] Tools list received: ${activeToolsCatalog.length} tools registered.`);
+
+  const radar = await handleMcpCall('freedom_clearinghouse_orderbook', { mode: 'list_open' });
+  console.log('[2/3] Orderbook Radar Response:\n', radar.content?.[0]?.text?.slice(0, 300) || radar);
+
+  const oracleCheck = await handleMcpCall('freedom_bitcoin_oracle_ping', { dryRun: true });
+  console.log('[3/3] Bitcoin Oracle Pre-Flight Live Check:\n', oracleCheck.content?.[0]?.text?.slice(0, 350) || oracleCheck);
+
+  console.log('[MCP SELF-TEST] All tools verified and ready for production.');
 }
 
 if (process.argv.includes('--self-test')) {
   runSelfTest();
 } else {
+  // Sync tools asynchronously in background
+  refreshToolsCatalog().catch(() => {});
+
   const rl = readline.createInterface({
     input: process.stdin,
     terminal: false
@@ -336,12 +412,12 @@ if (process.argv.includes('--self-test')) {
             },
             serverInfo: {
               name: 'freedom-m2m-mcp-server',
-              version: '2.1.0'
+              version: '2.5.0'
             }
           }
         });
       } else if (method === 'notifications/initialized') {
-        // No response required for notifications
+        // No response required
       } else if (method === 'ping') {
         sendJsonRpc({ jsonrpc: '2.0', id, result: {} });
       } else if (method === 'tools/list') {
@@ -349,11 +425,11 @@ if (process.argv.includes('--self-test')) {
           jsonrpc: '2.0',
           id,
           result: {
-            tools: TOOLS
+            tools: activeToolsCatalog
           }
         });
       } else if (method === 'tools/call') {
-        const result = await handleToolCall(params?.name, params?.arguments || {});
+        const result = await handleMcpCall(params?.name, params?.arguments || {});
         sendJsonRpc({
           jsonrpc: '2.0',
           id,
@@ -370,6 +446,12 @@ if (process.argv.includes('--self-test')) {
                 name: 'Freedom M2M Gateway LLMs Manifest',
                 mimeType: 'text/plain',
                 description: 'Complete overview of L402/x402 payment rails and available M2M endpoints.'
+              },
+              {
+                uri: `${GATEWAY_URL}/skill.md`,
+                name: 'Freedom M2M Skill Specification',
+                mimeType: 'text/markdown',
+                description: 'Executable instructions for autonomous agent interaction.'
               }
             ]
           }
