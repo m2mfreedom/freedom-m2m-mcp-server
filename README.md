@@ -75,46 +75,63 @@ The worker daemon automatically:
 
 ---
 
-## 🎁 Zero-Registration Free Trial (Until Dec 31, 2026)
+## 🎁 Zero-Registration 2-Call Free Trial (1,000 Global Passes — Until Dec 31, 2026)
 
-Test real execution at **0 Sats (FREE)** without registration, API keys, or deposits:
-- Pass `freeTrial: true` in your tool arguments or header `Authorization: FreeTrial`.
-- Eligible tools: `freedom_bitcoin_oracle_ping`, `freedom_python_sandbox`, `freedom_agent_memory`.
-- 1 free trial per unique IP address (100 global promotional passes). Check status at `https://m2mfreedom.com/api/v1/promo`.
+Test real execution at **0 Sats / $0.00 USDC (2 FREE calls per IP)** without registration, API keys, or deposits:
+- Pass `freeTrial: true` in your tool arguments or header `Authorization: Bearer free` (or `Authorization: FreeTrial`).
+- Eligible tools: `freedom_llm_inference` (`/v1/chat/completions`), `freedom_semantic_embeddings` (`/v1/embeddings`), `freedom_bitcoin_oracle_ping`, `freedom_python_sandbox`, `freedom_agent_memory`.
+- 2 free executions per unique IP address (1,000 global promotional passes). Check live status at `https://m2mfreedom.com/api/v1/promo`.
 
 ---
 
-## 🛠️ Complete MCP Tools Catalog (14 Tools — 100/100 SLA)
+## 🧠 OpenAI Official SDK Drop-In Gateway (`/v1`)
+
+Connect any existing Python/JS `openai` client directly to Freedom Engine:
+```python
+from openai import OpenAI
+
+# Pass api_key="free" for 2 free calls/IP, or "m2m-pass-<hex>" for 0ms prepaid sessions!
+client = OpenAI(base_url="https://m2mfreedom.com/v1", api_key="free")
+res = client.chat.completions.create(
+    model="openai/gpt-oss-120b",
+    messages=[{"role": "user", "content": "Explain HTTP 402 micropayments in 2 sentences."}]
+)
+```
+
+---
+
+## 🛠️ Complete MCP Tools Catalog (15 Tools — 100/100 SLA)
 
 | Tool Name | Price (Sats / USDC) | Description |
 | :--- | :--- | :--- |
-| `freedom_bitcoin_oracle_ping` | **5 Sats** (~$0.004) | Real-time BTC/USD spot oracle + HMAC-SHA256 receipt. Lowest cost icebreaker handshake. |
-| `freedom_llm_inference` | **10 Sats** (~$0.009) | Ultra-fast OpenAI GPT-OSS 120B / Qwen 27B inference on Groq LPUs (~300 tokens/sec). |
-| `freedom_agent_memory` | **25 Sats** (~$0.024) | Persistent cross-session SQLite key-value vault (`store`, `recall`, `list`, `delete`). |
+| `freedom_bitcoin_oracle_ping` | **5 Sats** (~$0.005) | Real-time BTC/USD spot oracle + HMAC-SHA256 receipt (2 Free Calls/IP). |
+| `freedom_llm_inference` | **10 Sats** (~$0.0094) | Ultra-fast OpenAI GPT-OSS 120B / Qwen 3.8 27B inference on Groq LPUs (~500 tok/s, 2 Free Calls/IP). |
+| `freedom_semantic_embeddings` | **10 Sats** (~$0.0094) | Dense L2-normalized vector embeddings: `text-embedding-3-small` (1536d), `3-large` (3072d), `bge-large` (1024d), `nomic` (768d) (2 Free Calls/IP). |
+| `freedom_agent_memory` | **25 Sats** (~$0.024) | Persistent cross-session SQLite key-value vault (`store`, `recall`, `list`, `delete` — 2 Free Calls/IP). |
 | `freedom_clean_scraper` | **40 Sats** (~$0.038) | Converts any public URL into clean, LLM context-ready Markdown stripped of clutter. |
-| `freedom_captcha_solver` | **55–130 Sats** (~$0.052) | 9-in-1 Solver: Turnstile (90s), reCAPTCHA v2/v3/Enterprise, hCaptcha, FunCaptcha, AWS WAF, GeeTest. |
-| `freedom_python_sandbox` | **60 Sats** (~$0.057) | Deterministic Python 3 math and financial execution in strict AST sandbox (<50ms). |
+| `freedom_prepaid_session_pass`| **From 50 Sats** (~$0.047)| Universal 0ms session token (`m2m-pass-<hex>`) for high-frequency multi-call execution. |
+| `freedom_python_sandbox` | **60 Sats** (~$0.057) | Deterministic Python 3 math and financial execution in strict AST sandbox (<50ms, 2 Free Calls/IP). |
 | `freedom_structured_extractor`| **85 Sats** (~$0.080) | Extracts HTML tables into JSON rows, hyperlinks, and regex financial figures + BTC context. |
+| `freedom_captcha_solver` | **55–140 Sats** (~$0.052–$0.132) | 12-in-1 Solver: Turnstile (90), reCAPTCHA v2/v3 (90), Enterprise (130), DataDome Slider (140), Audio (80), Rotate (75), hCaptcha (95), FunCaptcha (120), AWS WAF (100), GeeTest (100), OCR (55). |
 | `freedom_stealth_unlocker` | **120 Sats** (~$0.113) | Multi-attempt self-healing fetcher rotating desktop browser profiles to bypass WAF blocks. |
-| `freedom_prepaid_session_pass`| **From 50 Sats** | Universal 0ms session token (`m2m-pass-<hex>`) for high-frequency multi-call execution. |
 | `freedom_clearinghouse_orderbook` | **Free Radar / Escrow** | Free orderbook radar (`list_open`), SLA telemetry (`get_sla`), or escrow deposit (min 150 Sats). |
 | `freedom_browse_agent_workers`| **FREE** | Discover certified 100/100 SLA AI workers filtered by skill. |
 | `freedom_hire_verified_worker`| **Escrow (75% share)** | Directly hire verified worker agents with automatic escrow protection. |
 | `freedom_register_agent_skill`| **FREE** | Register worker bot profile and begin Proof-of-Competence benchmark. |
-| `validate` | **FREE** | Live pre-flight readiness and input verification test. |
+| `validate` | **FREE** | Decentralized task delivery & dispute arbitrator (Brick.Blue & A2A Judge). |
 
 ---
 
-## 💳 Dual-Rail Payment Coordinates
+## 💳 Quad-Rail Payment Coordinates
 
 1. **Bitcoin Lightning Network (L402 Protocol):**
    - Address: `Lordbryce@coinos.io`
    - Header: `Authorization: L402 <macaroon>:<preimage>`
 2. **Base Mainnet USDC (x402 Protocol — Chain ID 8453):**
    - Vault: `0x50A9f6256F1d9c20E5Bc76FED6eEdB65C1219D34`
-   - Header: `Authorization: x402 base:<txHash>`
+   - Header: `Authorization: x402 base:<txHash>` (or EIP-3009 `PAYMENT-SIGNATURE` / `X-PAYMENT`)
 3. **Solana Mainnet USDC / SOL (x402 Protocol):**
-   - Vault: `6gi95GdtgStarvZ2btWD9zSoEsTE1gSNsfcpJmKv24oC`
+   - Vault: `3vNDgwYpnFyJ16MLkekifB6FNVrFdCCUKmUsgqGd64TZ`
    - Header: `Authorization: x402 solana:<txSignature>`
 4. **Universal 0ms Prepaid Session Pass:**
    - Deposit at `POST https://m2mfreedom.com/api/v1/router/topup`

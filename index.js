@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Freedom Engine M2M Gateway & Clearinghouse — Official MCP Server (v2.5.0)
+ * Freedom Engine M2M Gateway & Clearinghouse — Official MCP Server (v2.6.0)
  * JSON-RPC 2.0 over stdio compatible with Claude Desktop, Cursor, Smithery, Glama, OpenCode.
  *
  * Supported Payment Rails:
  *   - L402 (Bitcoin Lightning Network -> Lordbryce@coinos.io)
  *   - x402 (Base Mainnet USDC -> 0x50A9f6256F1d9c20E5Bc76FED6eEdB65C1219D34)
- *   - x402 (Solana Mainnet USDC/SOL -> 6gi95GdtgStarvZ2btWD9zSoEsTE1gSNsfcpJmKv24oC)
+ *   - x402 (Solana Mainnet USDC/SOL -> 3vNDgwYpnFyJ16MLkekifB6FNVrFdCCUKmUsgqGd64TZ)
  *   - Prepaid Session Pass (m2m-pass-<hex> via POST /api/v1/router/topup)
- *   - Zero-Registration Free Trial (freeTrial=true or Authorization="FreeTrial" until 2026-12-31)
+ *   - Zero-Registration Free Trial (2 free calls/IP via freeTrial=true or Authorization="Bearer free")
  */
 
 import readline from 'node:readline';
@@ -16,7 +16,7 @@ import readline from 'node:readline';
 const GATEWAY_URL = (process.env.FREEDOM_GATEWAY_URL || 'https://m2mfreedom.com').replace(/\/+$/, '');
 const DEFAULT_AUTH_HEADER = process.env.FREEDOM_AUTH_HEADER || '';
 
-// Static fallback catalog of 14 MCP tools
+// Static fallback catalog of 15 MCP tools
 const FALLBACK_TOOLS = [
   {
     name: 'freedom_bitcoin_oracle_ping',
@@ -60,29 +60,73 @@ const FALLBACK_TOOLS = [
         temperature: { type: 'number', description: 'Sampling temperature (default: 0.7).' },
         max_tokens: { type: 'number', description: 'Max tokens (default: 1024).' },
         dryRun: { type: 'boolean', description: 'Set true for a FREE (0 Sats) live readiness check.' },
+        freeTrial: { type: 'boolean', description: 'Set true for 2 FREE execution passes per IP.' },
         xPayment: { type: 'string', description: 'Optional x402 payment payload or "base:<0xTxHash>".' },
         m2mPass: { type: 'string', description: 'Optional Prepaid Session Pass token.' },
-        authHeader: { type: 'string', description: 'Optional L402 or x402 payment proof header.' }
+        authHeader: { type: 'string', description: 'Optional L402 or x402 payment proof header, or "Bearer free".' }
       }
     }
   },
   {
-    name: 'freedom_captcha_solver',
-    title: 'High-Speed 9-in-1 CAPTCHA Solver (55-130 Sats / $0.052-$0.122 USDC)',
+    name: 'freedom_semantic_embeddings',
+    title: 'High-Density Semantic Embeddings Vector Generator (10 Sats / $0.009 USDC | 2 FREE Trial Calls/IP)',
     description:
-      'High-Speed Multi-Engine CAPTCHA Solver for Autonomous AI Agents (55-130 Sats / ~$0.052-$0.122 USDC | 100/100 SLA Guaranteed + FREE dryRun=true Pre-Check). Solves 9 high-demand challenges: (1) turnstile (Cloudflare Turnstile, 90 Sats), (2) recaptcha_v2 (Google reCAPTCHA v2, 90 Sats), (3) recaptcha_v3 (Google reCAPTCHA v3 Score 0.7+, 90 Sats), (4) recaptcha_enterprise (130 Sats), (5) hcaptcha (95 Sats), (6) funcaptcha (Arkose Labs, 120 Sats), (7) amazon_waf (100 Sats), (8) geetest (100 Sats), (9) normal (Image Base64 / Text OCR, 55 Sats). Zero token consumption if upstream fails.',
+      'OpenAI-compatible Dense Semantic Vector Embeddings Generator supporting text-embedding-3-small (1536d), text-embedding-3-large (3072d), bge-large-en-v1.5 (1024d), and nomic-embed-text-v1.5 (768d) with L2-normalized unit vectors (~25ms latency | 100/100 SLA | 2 FREE Executions per IP).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        input: {
+          oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+          description: 'Text string or array of strings to embed into dense float vectors.'
+        },
+        model: {
+          type: 'string',
+          description: 'Embedding model: "text-embedding-3-small" (1536d, default), "text-embedding-3-large" (3072d), "bge-large-en-v1.5" (1024d), or "nomic-embed-text-v1.5" (768d).'
+        },
+        dimensions: { type: 'number', description: 'Optional target vector dimension.' },
+        dryRun: { type: 'boolean', description: 'Set true for a FREE (0 Sats) readiness check.' },
+        freeTrial: { type: 'boolean', description: 'Set true for 2 FREE execution passes per IP.' },
+        xPayment: { type: 'string', description: 'Optional x402 payment payload or "base:<0xTxHash>".' },
+        m2mPass: { type: 'string', description: 'Optional Prepaid Session Pass token.' },
+        authHeader: { type: 'string', description: 'Optional L402/x402 payment header or "Bearer free".' }
+      },
+      required: ['input']
+    }
+  },
+  {
+    name: 'freedom_captcha_solver',
+    title: 'High-Speed 12-in-1 CAPTCHA Solver (55-140 Sats / $0.052-$0.132 USDC)',
+    description:
+      'High-Speed 12-in-1 Multi-Engine CAPTCHA Solver for Autonomous AI Agents (55-140 Sats / ~$0.052-$0.132 USDC | 100/100 SLA Guaranteed + FREE dryRun=true Pre-Check). Solves all 12 challenge types: turnstile (90), recaptcha_v2 (90), recaptcha_v3 (90), recaptcha_enterprise (130), datadome (140), audio_captcha (80), rotate (75), hcaptcha (95), funcaptcha (120), amazon_waf (100), geetest (100), normal (55). Zero token consumption if upstream fails.',
     inputSchema: {
       type: 'object',
       properties: {
         captchaType: {
           type: 'string',
-          enum: ['turnstile', 'recaptcha_v2', 'recaptcha_v3', 'recaptcha_enterprise', 'hcaptcha', 'funcaptcha', 'amazon_waf', 'geetest', 'normal'],
+          enum: [
+            'turnstile',
+            'recaptcha_v2',
+            'recaptcha_v3',
+            'recaptcha_enterprise',
+            'hcaptcha',
+            'funcaptcha',
+            'amazon_waf',
+            'geetest',
+            'datadome',
+            'audio_captcha',
+            'rotate',
+            'normal'
+          ],
           description: 'CAPTCHA challenge type to solve (default: turnstile).'
         },
         websiteURL: { type: 'string', description: 'Full URL of the target page containing the CAPTCHA.' },
-        websiteKey: { type: 'string', description: 'Sitekey / websiteKey (for Turnstile, reCAPTCHA v2/v3/Enterprise, AWS WAF).' },
-        bodyBase64: { type: 'string', description: 'Base64 image payload when captchaType="normal".' },
-        question: { type: 'string', description: 'Text question when captchaType="normal" (text challenge).' },
+        websiteKey: { type: 'string', description: 'Sitekey / websiteKey (for Turnstile, reCAPTCHA, hCaptcha, FunCaptcha, AWS WAF).' },
+        bodyBase64: { type: 'string', description: 'Base64 payload when captchaType="normal", "rotate", or "audio_captcha".' },
+        audioBase64: { type: 'string', description: 'MP3/WAV Base64 payload when captchaType="audio_captcha".' },
+        captchaUrl: { type: 'string', description: 'DataDome interstitial captcha URL when captchaType="datadome".' },
+        angle: { type: 'number', description: 'Rotation step angle in degrees for rotate.' },
+        lang: { type: 'string', description: 'Language code (e.g. "en", "es").' },
+        question: { type: 'string', description: 'Text question when captchaType="normal".' },
         gt: { type: 'string', description: 'GeeTest v3 gt key (or use captchaId for GeeTest v4).' },
         challenge: { type: 'string', description: 'GeeTest v3 challenge string.' },
         captchaId: { type: 'string', description: 'GeeTest v4 captcha_id.' },
@@ -412,7 +456,7 @@ if (process.argv.includes('--self-test')) {
             },
             serverInfo: {
               name: 'freedom-m2m-mcp-server',
-              version: '2.5.0'
+              version: '2.6.0'
             }
           }
         });

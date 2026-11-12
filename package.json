@@ -1,8 +1,8 @@
 {
   "name": "freedom-m2m-mcp-server",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "mcpName": "io.github.m2mfreedom/freedom-m2m-mcp-server",
-  "description": "Official MCP Server & Skill for Freedom Engine M2M Gateway & Task Clearinghouse (L402 Bitcoin Lightning + x402 Base/Solana USDC). Zero-registration tools for AI Agents: 5-Sat Bitcoin Oracle, 10-Sat Flagship LLM Inference, 9-in-1 CAPTCHA Solver, Stealth Web Unlocker, Persistent Memory Vault, Structured Extractor, Clean Scraper, Python Sandbox, and M2M Task Orderbook. Includes 1-command autonomous Worker Bot.",
+  "description": "Official MCP Server & Skill (15 Tools) for Freedom Engine M2M Gateway & Task Clearinghouse (L402 Bitcoin Lightning + x402 Base/Solana USDC + 0ms Prepaid Pass + 2 Free Calls/IP). Zero-registration tools for AI Agents: 5-Sat Bitcoin Oracle, 10-Sat GPT-OSS 120B LLM, 10-Sat Dense Semantic Vector Embeddings, 12-in-1 CAPTCHA Solver, Stealth Web Unlocker, Persistent Memory Vault, Structured Extractor, Clean Scraper, Python Sandbox, Task Validator, and M2M Task Orderbook.",
   "main": "index.js",
   "type": "module",
   "bin": {
